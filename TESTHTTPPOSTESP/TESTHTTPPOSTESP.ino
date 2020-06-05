@@ -75,14 +75,26 @@ void UpdateCode()
     }
   }
 }
-int ESP_POST(String phoneNumber)
+int ESP_POST(String phoneNumber, String message)
 {
   int httpResponseCode = 0;
   http.begin("http://api.conek.vn/SendSms");  
   http.addHeader("Content-Type","application/json");
   http.addHeader("Accept","application/json");
-  String httpRequestData = "{\"id\": \"1\",\"username\": \"autocaretest\",\"password\": \"autocaretest\",\"brandname\": \"CONEK\",\"phone\": \""+phoneNumber+"\",\"message\": \"Test Thoi!\"}";
+  String httpRequestData = "{\"id\": \"1\",\"username\": \"autocaretest\",\"password\": \"autocaretest\",\"brandname\": \"CONEK\",\"phone\": \""+phoneNumber+"\",\"message\": \""+message+"\"}";
   httpResponseCode = http.POST(httpRequestData);
+  String payLoad = http.getString();
+  if(payLoad.indexOf("Success") > 0 && httpResponseCode == 200)
+  {
+    Serial.println("Gui thanh cong");   
+    Oled_print(65,20,"Success");
+  }
+  else
+  {
+    Serial.println("Gui khong thanh cong");  
+    Oled_print(62,20,"Sorry,Failed");
+  }
+  http.end();
   return httpResponseCode;
 }
 /*===================Khoi tao module doc de no hoat dong=================*/
@@ -343,14 +355,34 @@ void loop() {
     //Serial.println(ESP_POST());
     //Firebase.pushString("/annguyen",data);
     String nodeNeedGet = "/getData/"+textUID;//"/getData"+"/"+textUID;
-    String nodePostData = "/DuLieuDiemDanh/"+textUID;//"/getData"+"/"+textUID;
-    //Firebase.setString(nodePostData,dayStamp +","+ timeStamp);
-    //Serial.println(Firebase.getString(nodeNeedGet));
-    Serial.println(ESP_POST(Firebase.getString(nodeNeedGet)));
+    String nodePostData = "/DuLieuDiemDanh";//"/getData"+"/"+textUID;
+    Firebase.pushString(nodePostData,textUID + "," + dayStamp +","+ timeStamp);
+    delay(500);
+    if(Firebase.failed())
+    {
+      Oled_print(62,20,"Sorry,Failed");
+    }
+    else
+    {
+      String phoneNumberGet = Firebase.getString(nodeNeedGet);
+      Serial.println(phoneNumberGet);
+      
+      if(Firebase.failed())
+      {
+        Oled_print(62,20,"Sorry,Failed");  
+      }
+      else
+      {
+        ESP_POST(phoneNumberGet,timeStamp);
+      }
+    }
+    
+    //Serial.println(ESP_POST(Firebase.getString(nodeNeedGet),timeStamp));
+    
     //Serial.println(Firebase.getString(nodeNeedGet));
     ChuongBaoThanhCong();                                                                                                                                                                        
     textUID = "";
-    delay(1000);
+    delay(1500);
   }
   if(textUID != "" && tempUID == textUID){
     Oled_print(60,20,"Ban da cham the");
