@@ -18,7 +18,6 @@
 #include <WiFiClient.h>
 #include "images.h"
 
-
 ESP8266WiFiMulti WiFiMulti;
 WiFiClient client;
 HTTPClient http;  
@@ -40,7 +39,7 @@ int setYear = 0;
 String Date = "";
 String formattedDate = "";
 /*********************************/
-String ver = "Ver 1.2";
+String ver = "Ver 1.0";
 String macAdd = "";
 String textUID = "";
 String tempUID = "";
@@ -163,13 +162,6 @@ static void UDP_send_data(String DataNeedSend, int gatePort)
   ntpUDP.write(DataNeedSend.c_str(), DataNeedSend.length());
   //ntpUDP.print(DataNeedSend);
   ntpUDP.endPacket();
-  for(int i = 0; i < 30; i++){
-    ntpUDP.beginPacket("255.255.255.255",gatePort);
-    ntpUDP.write(DataNeedSend.c_str(), DataNeedSend.length());
-  //ntpUDP.print(DataNeedSend);
-    ntpUDP.endPacket();    
-    delay(100);
-  }
 }
 
 /*Function Lay Wifi, phan tich SSID, Pass and PORT de truyen du lieu voi may tinh */
@@ -344,7 +336,7 @@ void loop() {
   /*Doc gia tri Tag*/
   textUID = ReadTagNFC();
   //Co gia tri Tag thi xu ly
-  if(textUID != "" && tempUID != textUID){
+  if(textUID != ""/* && tempUID != textUID*/){
     tempUID = textUID;
     Oled_print(65,20,"Sending");
     String data = textUID +","+ dayStamp +","+ timeStamp +",";
@@ -354,9 +346,22 @@ void loop() {
     //UDP_send_data(textUID,PORT);
     //Serial.println(ESP_POST());
     //Firebase.pushString("/annguyen",data);
-    String nodeNeedGet = "/getData/"+textUID;//"/getData"+"/"+textUID;
-    String nodePostData = "/DuLieuDiemDanh";//"/getData"+"/"+textUID;
-    Firebase.pushString(nodePostData,textUID + "," + dayStamp +","+ timeStamp);
+    //String nodeNeedGet = "/getData/"+textUID;//"/getData"+"/"+textUID;
+    //String nodeNeedGet = "/DanhSachNhanVien/01/BirthDay/";//"/getData"+"/"+textUID;
+    //String nodePostData = "/DuLieuDiemDanh";//"/getData"+"/"+textUID;
+    String nodeNeedGet = "Conek/DanhSachNhanVien/"+textUID+"/Name/";
+    String nodePostData = "Conek/DuLieuDiemDanh/"+textUID+"/"+dayStamp;
+
+    if(setHours < 12 && setHours >= 8){
+      int soPhutMuon = setHours*60 + setMin - 8*60 - 30;
+      Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
+    }else if(setHours >= 13 && setHours < 18){
+      int soPhutMuon = setHours*60 + setMin - 13*60 - 30;
+      Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
+    }else{
+      Firebase.pushString(nodePostData,timeStamp+",0");
+    }
+    UDP_send_data(textUID,PORT);
     delay(500);
     if(Firebase.failed())
     {
@@ -364,17 +369,20 @@ void loop() {
     }
     else
     {
-      String phoneNumberGet = Firebase.getString(nodeNeedGet);
-      Serial.println(phoneNumberGet);
-      
-      if(Firebase.failed())
-      {
-        Oled_print(62,20,"Sorry,Failed");  
-      }
-      else
-      {
-        ESP_POST(phoneNumberGet,timeStamp);
-      }
+      Oled_print(62,20,"Success");
+      Serial.println(Firebase.getString(nodeNeedGet));
+        //Serial.println(Firebase.getString(nodeNeedGet));
+//      String phoneNumberGet = Firebase.getString(nodeNeedGet);
+//      Serial.println(phoneNumberGet);
+//      
+//      if(Firebase.failed())
+//      {
+//        Oled_print(62,20,"Sorry,Failed");  
+//      }
+//      else
+//      {
+//        ESP_POST(phoneNumberGet,timeStamp);
+//      }
     }
     
     //Serial.println(ESP_POST(Firebase.getString(nodeNeedGet),timeStamp));
