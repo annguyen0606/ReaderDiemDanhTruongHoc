@@ -39,7 +39,7 @@ int setYear = 0;
 String Date = "";
 String formattedDate = "";
 /*********************************/
-String ver = "Ver 1.0";
+String ver = "Ver 2.0";
 String macAdd = "";
 String textUID = "";
 String tempUID = "";
@@ -322,7 +322,11 @@ void setup()
   timeClient.setTimeOffset(3600 * 7);
   timeClient.begin();
 
-  Firebase.begin("annguyenhoctap.firebaseio.com");
+  Firebase.begin("cloud-nfc-proj.firebaseio.com");
+  while(Firebase.getString("Conek/DanhSachNhanVien/0601435065410621/SDT/") != "0356435101"){
+    Firebase.begin("cloud-nfc-proj.firebaseio.com");
+    delay(500);  
+  }
 }
 void loop() {
   /*Lay trang thai cua nut bam*/
@@ -351,7 +355,9 @@ void loop() {
     //String nodePostData = "/DuLieuDiemDanh";//"/getData"+"/"+textUID;
     String nodeNeedGet = "Conek/DanhSachNhanVien/"+textUID+"/Name/";
     String nodePostData = "Conek/DuLieuDiemDanh/"+textUID+"/"+dayStamp;
-
+    UDP_send_data(textUID,PORT);
+GuiDuLieuDiemDanh:    
+    delay(100);
     if(setHours < 12 && setHours >= 8){
       int soPhutMuon = setHours*60 + setMin - 8*60 - 30;
       Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
@@ -361,16 +367,18 @@ void loop() {
     }else{
       Firebase.pushString(nodePostData,timeStamp+",0");
     }
-    UDP_send_data(textUID,PORT);
+    
     delay(500);
     if(Firebase.failed())
     {
-      Oled_print(62,20,"Sorry,Failed");
+      goto GuiDuLieuDiemDanh;
+      //Oled_print(62,20,"Sorry,Failed");
     }
     else
     {
       Oled_print(62,20,"Success");
-      Serial.println(Firebase.getString(nodeNeedGet));
+      //Serial.println(Firebase.getString(nodeNeedGet));
+      ChuongBaoThanhCong();
         //Serial.println(Firebase.getString(nodeNeedGet));
 //      String phoneNumberGet = Firebase.getString(nodeNeedGet);
 //      Serial.println(phoneNumberGet);
@@ -388,12 +396,12 @@ void loop() {
     //Serial.println(ESP_POST(Firebase.getString(nodeNeedGet),timeStamp));
     
     //Serial.println(Firebase.getString(nodeNeedGet));
-    ChuongBaoThanhCong();                                                                                                                                                                        
+                                                                                                                                                                            
     textUID = "";
     delay(1500);
   }
-  if(textUID != "" && tempUID == textUID){
-    Oled_print(60,20,"Ban da cham the");
-    delay(1000);
-  }        
+//  if(textUID != "" && tempUID == textUID){
+//    Oled_print(60,20,"Ban da cham the");
+//    delay(1000);
+//  }        
 }
