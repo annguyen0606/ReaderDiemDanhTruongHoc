@@ -41,7 +41,7 @@ int setYear = 0;
 String Date = "";
 String formattedDate = "";
 /*********************************/
-String ver = "Ver 2.0";
+String ver = "Ver 2.1";
 String macAdd = "";
 String textUID = "";
 String tempUID = "";
@@ -116,7 +116,12 @@ int ESP_POST(String phoneNumber, String message)
   return httpResponseCode;
 }
 /*Function Json Process*/
-int JsonResProcess(String phoneStaff){
+int JsonResProcess(String nodeNeedGetPhoneStaff){
+  GetDataPhoneStaff:    
+      String phoneStaff = Firebase.getString(nodeNeedGetPhoneStaff);
+      if(Firebase.failed()){
+        goto GetDataPhoneStaff;
+      }  
       int sensorReadingsArr[3];
       if(phoneStaff != ""){
         String dataRes = ESP_GET(bonusData + phoneStaff);
@@ -385,6 +390,7 @@ void loop() {
   textUID = ReadTagNFC();
   //Co gia tri Tag thi xu ly
   if(textUID != ""/* && tempUID != textUID*/){
+    ChuongBaoNhanTag();
     tempUID = textUID;
     Oled_print(65,20,"Sending");
     String data = textUID +","+ dayStamp +","+ timeStamp +",";
@@ -401,28 +407,24 @@ void loop() {
     String nodeNeedGetPhoneStaff = "Conek/DanhSachNhanVien/"+textUID+"/SDT/";
     String nodePostData = "Conek/DuLieuDiemDanh/"+textUID+"/"+dayStamp;
     UDP_send_data(textUID,PORT);    
-GetDataPhoneStaff:    
     int sensorReadingsArr = 10;
-    String phoneStaff = Firebase.getString(nodeNeedGetPhoneStaff);
-    if(Firebase.failed()){
-      goto GetDataPhoneStaff;
-    }
     delay(100);
     int soPhutMuon = 0;
     if(setHours < 12 && setHours >= 8){
       soPhutMuon = setHours*60 + setMin - 8*60 - 30;
-      if(soPhutMuon > 0){
-        sensorReadingsArr = JsonResProcess(phoneStaff); 
+      if(soPhutMuon <= 0){
+        sensorReadingsArr = JsonResProcess(nodeNeedGetPhoneStaff); 
       }
       //Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
-    }else if(setHours >= 13 && setHours < 18){
+    }else if(setHours >= 12 && setHours < 18){
       soPhutMuon = setHours*60 + setMin - 13*60 - 30;
-      if(soPhutMuon > 0){
-        sensorReadingsArr = JsonResProcess(phoneStaff); 
-      }
+      sensorReadingsArr = 10;
+    }else if(setHours >= 18){
+      soPhutMuon = 0;
+      sensorReadingsArr = 10;
     }else{
       soPhutMuon = 0;
-      sensorReadingsArr = JsonResProcess(phoneStaff); 
+      sensorReadingsArr = JsonResProcess(nodeNeedGetPhoneStaff); 
     }
 GuiDuLieuDiemDanh:    
     Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
