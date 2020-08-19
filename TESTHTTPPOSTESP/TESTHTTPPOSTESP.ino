@@ -17,6 +17,7 @@
 #include <ESP8266WiFiMulti.h>
 #include <WiFiClient.h>
 #include "images.h"
+#include <Arduino_JSON.h>
 
 ESP8266WiFiMulti WiFiMulti;
 WiFiClient client;
@@ -25,6 +26,7 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 ESP8266WebServer server(80);
 /*Bien Thoi Gian*/
+String bonusData = "http://test.sponsorapi.conekdata.com/api/DataSms/InsertDataSmsDataCodeVMS?phoneFb=";
 String timeStamp;
 String dayStamp;
 String currentDay = "";
@@ -74,6 +76,23 @@ void UpdateCode()
     }
   }
 }
+/*Function ESP GET and ESP POST*/
+String ESP_GET(String apiData){
+  int httpResponseCode = 0;
+  String payLoad = "";
+GetApiData:  
+  http.begin(client,apiData);
+  httpResponseCode = http.GET();
+  if(httpResponseCode == 200){
+    payLoad = http.getString();  
+  }else{
+    delay(200);
+    http.end();
+    goto GetApiData;
+  }
+  http.end();
+  return payLoad;
+}
 int ESP_POST(String phoneNumber, String message)
 {
   int httpResponseCode = 0;
@@ -95,6 +114,29 @@ int ESP_POST(String phoneNumber, String message)
   }
   http.end();
   return httpResponseCode;
+}
+/*Function Json Process*/
+int JsonResProcess(String phoneStaff){
+      int sensorReadingsArr[3];
+      if(phoneStaff != ""){
+        String dataRes = ESP_GET(bonusData + phoneStaff);
+        if(dataRes != ""){
+          JSONVar myObject = JSON.parse(dataRes);
+           if (JSON.typeof(myObject) == "undefined") {
+           }else{
+              JSONVar keys = myObject.keys();
+              for (int i = 0; i < keys.length(); i++) {
+                JSONVar value = myObject[keys[i]];
+                sensorReadingsArr[i] = (int)value;
+              }            
+           }
+        }
+      }else{
+        sensorReadingsArr[0] = 10;
+        sensorReadingsArr[1] = 10;
+        sensorReadingsArr[2] = 10;
+      }        
+      return sensorReadingsArr[0];
 }
 /*===================Khoi tao module doc de no hoat dong=================*/
 void Init_Module_Reader(){
@@ -297,12 +339,14 @@ void setup()
   int counter = 1;
   int goalValue = 0;
   int currentLoad = 0;
+SettingWifi:
   while (WiFi.status() != WL_CONNECTED) {
     goalValue += 8;
     if(goalValue < 85){
       drawProgressBarDemo(currentLoad,counter, goalValue);
     }else{
-      GetWifi();
+      goto SettingWifi;
+      //GetWifi();
       break;
     }
     delay(2000);
@@ -322,7 +366,7 @@ void setup()
   timeClient.setTimeOffset(3600 * 7);
   timeClient.begin();
 
-  Firebase.begin("cloud-nfc-proj.firebaseio.com");
+  Firebase.begin("cloud-nfc-proj.firebaseio.com","XYcRpajciWgqrcQNUWovKfSOEUTUFv5hgkyGEvnI");
   while(Firebase.getString("Conek/DanhSachNhanVien/0601435065410621/SDT/") != "0356435101"){
     Firebase.begin("cloud-nfc-proj.firebaseio.com");
     delay(500);  
@@ -354,20 +398,34 @@ void loop() {
     //String nodeNeedGet = "/DanhSachNhanVien/01/BirthDay/";//"/getData"+"/"+textUID;
     //String nodePostData = "/DuLieuDiemDanh";//"/getData"+"/"+textUID;
     String nodeNeedGet = "Conek/DanhSachNhanVien/"+textUID+"/Name/";
+    String nodeNeedGetPhoneStaff = "Conek/DanhSachNhanVien/"+textUID+"/SDT/";
     String nodePostData = "Conek/DuLieuDiemDanh/"+textUID+"/"+dayStamp;
-    UDP_send_data(textUID,PORT);
-GuiDuLieuDiemDanh:    
-    delay(100);
-    if(setHours < 12 && setHours >= 8){
-      int soPhutMuon = setHours*60 + setMin - 8*60 - 30;
-      Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
-    }else if(setHours >= 13 && setHours < 18){
-      int soPhutMuon = setHours*60 + setMin - 13*60 - 30;
-      Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
-    }else{
-      Firebase.pushString(nodePostData,timeStamp+",0");
+    UDP_send_data(textUID,PORT);    
+GetDataPhoneStaff:    
+    int sensorReadingsArr = 10;
+    String phoneStaff = Firebase.getString(nodeNeedGetPhoneStaff);
+    if(Firebase.failed()){
+      goto GetDataPhoneStaff;
     }
-    
+    delay(100);
+    int soPhutMuon = 0;
+    if(setHours < 12 && setHours >= 8){
+      soPhutMuon = setHours*60 + setMin - 8*60 - 30;
+      if(soPhutMuon > 0){
+        sensorReadingsArr = JsonResProcess(phoneStaff); 
+      }
+      //Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
+    }else if(setHours >= 13 && setHours < 18){
+      soPhutMuon = setHours*60 + setMin - 13*60 - 30;
+      if(soPhutMuon > 0){
+        sensorReadingsArr = JsonResProcess(phoneStaff); 
+      }
+    }else{
+      soPhutMuon = 0;
+      sensorReadingsArr = JsonResProcess(phoneStaff); 
+    }
+GuiDuLieuDiemDanh:    
+    Firebase.pushString(nodePostData,timeStamp+","+soPhutMuon);
     delay(500);
     if(Firebase.failed())
     {
@@ -376,7 +434,11 @@ GuiDuLieuDiemDanh:
     }
     else
     {
-      Oled_print(62,20,"Success");
+      if(sensorReadingsArr == 0){
+        Oled_print(60,20,"Thank you");
+      }else{
+        Oled_print(62,20,"Success"); 
+      }
       //Serial.println(Firebase.getString(nodeNeedGet));
       ChuongBaoThanhCong();
         //Serial.println(Firebase.getString(nodeNeedGet));
